@@ -17,8 +17,8 @@ local bitlshift = function(a, b) return a << b; end;
 local bitbor = function(a, b) return a | b; end;
 local stringgmatch = string.gmatch
 local memoryreaddword = memory.read_u16_le
-local savestatesave = savestate.save
-local savestateload = savestate.load
+local savestatesave = savestate.saveslot
+local savestateload = savestate.loadslot
 local stringformat = string.format
 local joypadset = joypad.set
 
@@ -41,6 +41,8 @@ local displaySearchOn = false
 local displayMinimalSearchOn = false
 local displayHelpOn = false
 local displayRNG = true
+local lockRNG = false
+local lockRNGValue = 0
 local consecutiveUpdatesFailedCounter = 0
 local searchFoundPositions = {"Yahaha You found me!"}
 local searchCompareTypes = {}
@@ -91,6 +93,7 @@ local currentGame = gameIDMap[gameID]
 
 print("Current game: "..currentGame)
 
+-- Prevents repeat presses on held buttons
 local heldDown = {
 	['1'] = false, 
 	['2'] = false, 
@@ -113,10 +116,12 @@ local heldDown = {
 	['F'] = false, --skip left search
 	['G'] = false, --skip right search 
 	['R'] = false, --disable ephase
-	['L'] = false, --reset search 
+	['L'] = false, --print debug
 	['V'] = false, --print enemy information
 	['Y'] = false, --print exp
 	['K'] = false, --go back to 0 RNG
+	-- 'M' is used for skipping larger increments
+	['N'] = false, -- locking the RNG in place
 	['J'] = false, --minimum search
 	['U'] = false, --hide ui completely
 	['up'] = false, --^^
@@ -860,7 +865,7 @@ function displaySearchMinimal()
 end
 
 function displayHelp()
-	guitext(45,40,"\'Q/W' - Decrement/Advance RNG\n'E/R' - Turn on/off AI phase script\n'U' - RNG display on/off\n'I' - Read SearchInputs.txt\n'O' - Search Result Display on/off\n'H' - Display Help\n'F/G' - Skip to left/right match\n'V' - Print Data\n'Y' - Print Total Exp\n'L' - Debug Functions\n'M + Arrows' - Skip Larger RNG Amounts\n'J + Arrows' - Minimal Search\n'K' - Return to 0 RN")
+	guitext(45,40,"\'Q/W' - Decrement/Advance RNG\n'E/R' - Turn on/off AI phase script\n'U' - RNG display on/off\n'I' - Read SearchInputs.txt\n'O' - Search Result Display on/off\n'H' - Display Help\n'F/G' - Skip to left/right match\n'V' - Print Data\n'Y' - Print Total Exp\n'L' - Debug Functions\n'M + Arrows' - Skip Larger RNG Amounts\n'N - Lock RNG'\n'J + Arrows' - Minimal Search\n'K' - Return to 0 RN")
 end
 
 function obtainedexp()
@@ -1178,7 +1183,8 @@ function checkForUserInput()
 		end
 	end
 	
-	--Reset search function
+	-- Used to be used to reset search
+	-- Now used as a general debug command to debug anything
 	if userInput.L and heldDown['L'] == false then
 		--print("Backup Completed!")
 		--setupSkip()
@@ -1260,6 +1266,18 @@ function checkForUserInput()
 		end
 	end
 	
+	-- Lock RNG in place
+	if userInput.N and heldDown['N'] == false then
+		if lockRNG == false then
+			print("Locking RNG!")
+			lockRNG = true
+			lockRNGValue = RNGPosition
+		else
+			print("Unlocking RNG.")
+			lockRNG = false
+		end
+	end
+	
 	--Hide search display
 	if userInput.O and heldDown['O'] == false and displayRNG then
 		-- toggle search display
@@ -1332,12 +1350,11 @@ function AIPhaseScript()
 	key1['A'] = true
 
 	-- Create a script-only savestate
-	RNGCheck = savestate.create()
-	savestatesave(RNGCheck)
+	savestatesave(9)
 	local currentBattle = 0
 	while not escape do
 	  
-	  	savestateload(RNGCheck)
+	  	savestateload(9)
 		
 		-- RNG Loop
 		for i = 1, currentBattle, 1 do
@@ -1361,7 +1378,7 @@ function AIPhaseScript()
 			
 			key1.start = (not key1.start) or nil -- press start every two frames
 			key1.b = not key1.start
-			joypadset(1, key1)
+			joypadset(key1)
 			
 			updateRNGPosition()
 			emu.frameadvance()
@@ -1424,6 +1441,18 @@ while true do
 			
 			emu.frameadvance()
 			
+		end
+	end
+	
+	if lockRNG == true then
+		while RNGPosition ~= lockRNGValue do
+			if RNGPosition > lockRNGValue then 
+				decrementRNG()
+				updateRNGPosition()
+			elseif RNGPosition < lockRNGValue then 
+				advanceRNG()
+				updateRNGPosition()
+			end
 		end
 	end
 end

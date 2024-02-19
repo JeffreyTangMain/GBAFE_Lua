@@ -1,4 +1,4 @@
-Credits to Rolanmen1, Vykan12, and TR143 for the development of the original GBA Fire Emblem RNG script and the search function. Below is the original README from TR143's script with additional commands from my modifications to their script.
+Credits to Rolanmen1, Vykan12, and TR143 for the development of the original GBA Fire Emblem RNG script and the search function. Below is the original README from TR143's script with additional commands from my modifications to their script. The BizHawk one is the primary one being updated, and so this Readme will reflect that script. The VBA one has most of the features, but will not be updated as the emulator is effectively outdated for TAS purposes.
 
 INSTRUCTIONS
 There are a bunch of buttons that you can press to do things:
@@ -15,6 +15,7 @@ There are a bunch of buttons that you can press to do things:
 'Y' - Print Total Exp
 'L' - Debug Functions
 'M + Arrows' - Skip Larger RNG Amounts
+'N' - Lock RNG in place
 'J + Arrows' - Minimal Search
 'K' - Return to 0 RN
 
@@ -60,6 +61,8 @@ position, unless there are less than 5 total matches. (if you set one of the bou
 you'll get 5 in one direction)
 
 AI PHASE SCRIPT
+This script uses save state 9 to brute force what the fastest enemy phase is for TAS purposes.
+
 You can press 'E' to enable the script and 'R' to disable the script at any time.
 
 Once enabled, whenever the game next gives the AI control the script will begin.
