@@ -291,6 +291,30 @@ function decrementRNG()
 	lockRNGValue = lockRNGValue - 1
 end
 
+function advanceRNGLocked()
+	-- Identify the memory addresses of the first 4 RNG values
+	local RNG1 = memoryreadword(RNGBase+4)
+	local RNG2 = memoryreadword(RNGBase+2)
+	local RNG3 = memoryreadword(RNGBase+0)
+	local RNG4 = nextSuperRN(RNG1, RNG2, RNG3)
+	-- Swap the values in RNG Seed 1,2,3 by the RNG values 2,3,4
+	memorywriteword(RNGBase + 4, RNG2)
+	memorywriteword(RNGBase + 2, RNG3)
+	memorywriteword(RNGBase + 0, RNG4)
+end
+
+function decrementRNGLocked()
+	-- Identify the memory addresses of the first 4 RNG values
+	local RNG2 = memoryreadword(RNGBase+4)
+	local RNG3 = memoryreadword(RNGBase+2)
+	local RNG4 = memoryreadword(RNGBase+0)
+	local RNG1 = previousSuperRN(RNG2, RNG3, RNG4)
+	-- Swap the values in RNG Seed 1,2,3 by the RNG values 2,3,4
+	memorywriteword(RNGBase + 4, RNG1)
+	memorywriteword(RNGBase + 2, RNG2)
+	memorywriteword(RNGBase + 0, RNG3)
+end
+
 function copyOf(t)
 	local newTable = {}
 	for i = 1, #t, 1 do
@@ -884,6 +908,20 @@ function moveToRNG(startPos, endPos)
 	end
 end
 
+function moveToRNGLocked(startPos, endPos)
+	local moveRNFunct
+	if(startPos > endPos) then
+		moveRNFunct = function() decrementRNGLocked() end
+	else
+		moveRNFunct = function() advanceRNGLocked() end
+	end
+	endPos = math.abs(endPos - startPos)
+	
+	for i=1, endPos, 1 do
+		moveRNFunct()
+	end
+end
+
 function obtainedexp()
 	local level = 0x0202BE54
 	local experience = 0x0202BE55
@@ -1439,9 +1477,7 @@ while true do
 	
 	if lockRNG == true then
 		if RNGPosition ~= lockRNGValue then
-			moveToRNG(RNGPosition, lockRNGValue)
-			updateRNGPosition()
-			lockRNGValue = RNGPosition
+			moveToRNGLocked(RNGPosition, lockRNGValue)
 		end
 	end
 end
