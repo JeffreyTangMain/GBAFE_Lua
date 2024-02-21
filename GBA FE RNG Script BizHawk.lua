@@ -241,18 +241,6 @@ function RNGSimulate(n)
 	return result
 end
 
-function advanceRNG()
-	-- Identify the memory addresses of the first 4 RNG values
-	local RNG1 =  memoryreadword(RNGBase+4)
-	local RNG2 =  memoryreadword(RNGBase+2)
-	local RNG3 = memoryreadword(RNGBase+0)
-	local RNG4 = nextSuperRN(RNG1, RNG2, RNG3)
-	-- Swap the values in RNG Seed 1,2,3 by the RNG values 2,3,4
-	memorywriteword(RNGBase + 4, RNG2)
-	memorywriteword(RNGBase + 2, RNG3)
-	memorywriteword(RNGBase + 0, RNG4)
-end
-
 -- Given an input table [RNG1, RNG2, RNG3], return [RNG2, RNG3, RNG4]
 function advanceRNGTable(RNGTable,n)
 	if n == 0 then
@@ -277,16 +265,30 @@ function advanceRNGTable(RNGTable,n)
 	return RNGTable
 end
 
+function advanceRNG()
+	-- Identify the memory addresses of the first 4 RNG values
+	local RNG1 = memoryreadword(RNGBase+4)
+	local RNG2 = memoryreadword(RNGBase+2)
+	local RNG3 = memoryreadword(RNGBase+0)
+	local RNG4 = nextSuperRN(RNG1, RNG2, RNG3)
+	-- Swap the values in RNG Seed 1,2,3 by the RNG values 2,3,4
+	memorywriteword(RNGBase + 4, RNG2)
+	memorywriteword(RNGBase + 2, RNG3)
+	memorywriteword(RNGBase + 0, RNG4)
+	lockRNGValue = lockRNGValue + 1
+end
+
 function decrementRNG()
 	-- Identify the memory addresses of the first 4 RNG values
-	local RNG2 =  memoryreadword(RNGBase+4)
+	local RNG2 = memoryreadword(RNGBase+4)
 	local RNG3 = memoryreadword(RNGBase+2)
 	local RNG4 = memoryreadword(RNGBase+0)
-	local RNG1 =  previousSuperRN(RNG2, RNG3, RNG4)
+	local RNG1 = previousSuperRN(RNG2, RNG3, RNG4)
 	-- Swap the values in RNG Seed 1,2,3 by the RNG values 2,3,4
 	memorywriteword(RNGBase + 4, RNG1)
 	memorywriteword(RNGBase + 2, RNG2)
 	memorywriteword(RNGBase + 0, RNG3)
+	lockRNGValue = lockRNGValue - 1
 end
 
 function copyOf(t)
@@ -868,6 +870,20 @@ function displayHelp()
 	guitext(45,40,"\'Q/W' - Decrement/Advance RNG\n'E/R' - Turn on/off AI phase script\n'U' - RNG display on/off\n'I' - Read SearchInputs.txt\n'O' - Search Result Display on/off\n'H' - Display Help\n'F/G' - Skip to left/right match\n'V' - Print Data\n'Y' - Print Total Exp\n'L' - Debug Functions\n'M + Arrows' - Skip Larger RNG Amounts\n'N - Lock RNG'\n'J + Arrows' - Minimal Search\n'K' - Return to 0 RN")
 end
 
+function moveToRNG(startPos, endPos)
+	local moveRNFunct
+	if(startPos > endPos) then
+		moveRNFunct = function() decrementRNG() end
+	else
+		moveRNFunct = function() advanceRNG() end
+	end
+	endPos = math.abs(endPos - startPos)
+	
+	for i=1, endPos, 1 do
+		moveRNFunct()
+	end
+end
+
 function obtainedexp()
 	local level = 0x0202BE54
 	local experience = 0x0202BE55
@@ -909,29 +925,17 @@ function searchSkip(value)
 	
 	if value == 1 then 
 		if backupLeftFoundPositions[1] == RNGPosition then 
-			while backupLeftFoundPositions[2] < RNGPosition do
-				decrementRNG()
-				updateRNGPosition()
-			end
+			moveToRNG(RNGPosition, backupLeftFoundPositions[2])
 		elseif backupLeftFoundPositions[1] < RNGPosition then
-			while backupLeftFoundPositions[1] < RNGPosition do
-				decrementRNG()
-				updateRNGPosition()
-			end
+			moveToRNG(RNGPosition, backupLeftFoundPositions[1])
 		end
 		tableinsert(backupRightFoundPositions,1,backupLeftFoundPositions[1])
 		tableremove(backupLeftFoundPositions,1)
 	else 
 		if backupRightFoundPositions[1] == RNGPosition then 
-			while backupRightFoundPositions[2] > RNGPosition do
-				advanceRNG()
-				updateRNGPosition()
-			end
+			moveToRNG(RNGPosition, backupRightFoundPositions[2])
 		elseif backupRightFoundPositions[1] > RNGPosition then
-			while backupRightFoundPositions[1] > RNGPosition do
-				advanceRNG()
-				updateRNGPosition()
-			end
+			moveToRNG(RNGPosition, backupRightFoundPositions[1])
 		end 
 		tableinsert(backupLeftFoundPositions,1,backupRightFoundPositions[1])
 		tableremove(backupRightFoundPositions,1)
@@ -942,12 +946,10 @@ function skipThousand(value)
 	if value == 1 then 
 		for p = skipThousandAmount,1,-1 do
 			decrementRNG()
-			updateRNGPosition()
 		end
 	else 
 		for p = skipThousandAmount,1,-1 do
 			advanceRNG()
-			updateRNGPosition()
 		end
 	end
 end
@@ -987,7 +989,6 @@ function setupSkip(value)
 		backupLeftFoundPositions = leftFoundPositions
 		backupRightFoundPositions = rightFoundPositions
 	end
-	updateRNGPosition()
 end
 
 function battleInformation()
@@ -1172,15 +1173,7 @@ function checkForUserInput()
 	
 	--Back to 0 RNG
 	if userInput.K and heldDown['K'] == false then
-		while RNGPosition ~= 0 do
-			if RNGPosition > 0 then 
-				decrementRNG()
-				updateRNGPosition()
-			elseif RNGPosition < 0 then 
-				advanceRNG()
-				updateRNGPosition()
-			end
-		end
+		moveToRNG(RNGPosition, 0)
 	end
 	
 	-- Used to be used to reset search
@@ -1445,14 +1438,10 @@ while true do
 	end
 	
 	if lockRNG == true then
-		while RNGPosition ~= lockRNGValue do
-			if RNGPosition > lockRNGValue then 
-				decrementRNG()
-				updateRNGPosition()
-			elseif RNGPosition < lockRNGValue then 
-				advanceRNG()
-				updateRNGPosition()
-			end
+		if RNGPosition ~= lockRNGValue then
+			moveToRNG(RNGPosition, lockRNGValue)
+			updateRNGPosition()
+			lockRNGValue = RNGPosition
 		end
 	end
 end
